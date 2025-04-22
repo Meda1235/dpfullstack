@@ -1970,10 +1970,11 @@ async def ai_suggest_analysis(req: PromptRequest):
     )
 
     try:
+        api_key = os.getenv("OPENROUTER_API_KEY")
         response = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
-                "Authorization": "Bearer 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",
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             },
             json={
@@ -2146,10 +2147,11 @@ async def ai_suggest_relationship(req: PromptRequest):
     )
 
     try:
+        api_key = os.getenv("OPENROUTER_API_KEY")
         response = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
-                "Authorization": "Bearer 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",
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             },
             json={
@@ -2371,11 +2373,7 @@ async def group_comparison(req: GroupComparisonRequest):
 
         group_results = []
 
-        # Iterujeme přes skupiny definované kategoriální proměnnou
-        # POZNÁMKA: U párového testu se typicky testuje rozdíl napříč podmínkami *pro stejné subjekty*.
-        # Group_col by zde měl identifikovat spíše subjekty nebo páry, pokud testujete efekt *uvnitř* subjektů.
-        # Pokud group_col definuje nezávislé skupiny a vy chcete párový test *v rámci každé skupiny*, logika je zde správná.
-        # Zvažte, zda váš scénář odpovídá tomuto předpokladu.
+
         if group_col not in df.columns:
              raise HTTPException(status_code=404, detail=f"Kategoriální sloupec '{group_col}' nebyl nalezen v datech.")
 
@@ -2390,7 +2388,7 @@ async def group_comparison(req: GroupComparisonRequest):
             x_vals = paired_data[col1]
             y_vals = paired_data[col2]
 
-            # ***** OPRAVA ZDE: Testujeme normalitu ROZDÍLŮ *****
+
             differences = x_vals - y_vals
             is_diff_normal = False # Výchozí stav: nenormální
             note = f"Párový test, skupina: {group_value}"
@@ -2656,77 +2654,7 @@ async def get_outliers():
 
     return outliers_summary
 
-# @app.post("/api/analyze_with_llm")
-# async def analyze_with_llm(request: DataRequest):
-#     df = pd.DataFrame(request.data, columns=request.headers)
-#
-#     # 🚀 Odešleme celý dataset (ale max. 500 řádků, pokud je velký)
-#     if len(df) > 500:
-#         df = df.sample(500, random_state=42)
-#
-#     # ✅ Převod na CSV formát (lepší pro LLM než JSON)
-#     csv_data = df.to_csv(index=False)
-#
-#     def stream_llm_response():
-#         try:
-#             print("🟡 Odesílám dotaz na LLM...")
-#
-#             response = requests.post(
-#                 "http://127.0.0.1:1234/v1/chat/completions",
-#                 json={
-#                     #"model": "deepseek-r1-distill-llama-8b",
-#                     "model": "hermes-3-llama-3.1-8b",
-#                     "messages": [{"role": "user", "content": f"{csv_data}"}],
-#                     "max_tokens": 200,
-#                     "stream": True
-#                 },
-#                 timeout=60,
-#                 stream=True
-#             )
-#
-#             print("🟢 LLM odpověď začíná streamovat...")
-#             full_response = ""
-#             last_char = ""
-#
-#             for line in response.iter_lines():
-#                 if line:
-#                     decoded_line = line.decode("utf-8").strip()
-#                     print(f"🔹 Přijatý řádek: {decoded_line}")
-#
-#                     if decoded_line.startswith("data:"):
-#                         decoded_line = decoded_line.replace("data: ", "")
-#
-#                     try:
-#                         json_data = json.loads(decoded_line)
-#
-#                         if "choices" in json_data and json_data["choices"]:
-#                             content_chunk = json_data["choices"][0]["delta"].get("content", "")
-#
-#                             if content_chunk:
-#                                 # ✅ Pokud poslední znak není mezera, ale přichází další text, přidáme mezeru
-#                                 if last_char not in ["", " ", "\n"] and content_chunk[0] not in [".", ",", "!", "?",
-#                                                                                                  ";", ":"]:
-#                                     content_chunk = " " + content_chunk
-#
-#                                 full_response += content_chunk
-#                                 last_char = content_chunk[-1] if content_chunk else last_char
-#
-#                                 print(f"📝 Obsah: {content_chunk}")
-#                                 yield content_chunk
-#
-#                     except (KeyError, json.JSONDecodeError):
-#                         print("⚠️ Chyba při parsování JSON, pokračuji...")
-#                         continue
-#
-#             print("✅ Streamování dokončeno. Celá odpověď:")
-#             print(full_response)
-#
-#         except requests.exceptions.RequestException as e:
-#             print(f"❌ Chyba při komunikaci s LLM: {str(e)}")
-#             yield f"❌ Chyba při komunikaci s LLM: {str(e)}\n"
-#
-#     return StreamingResponse(stream_llm_response(), media_type="text/event-stream")
-#
+
 @app.post("/api/analyze_with_llm")
 async def analyze_with_llm(request: DataRequest):
     df = pd.DataFrame(request.data, columns=request.headers)
@@ -2737,10 +2665,11 @@ async def analyze_with_llm(request: DataRequest):
     def stream_llm_response():
         try:
             print("Odesílám dotaz na LLM...")
+            api_key = os.getenv("OPENROUTER_API_KEY")
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
-                    "Authorization": "Bearer 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",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
@@ -2817,7 +2746,7 @@ async def analyze_with_llm(request: DataRequest):
 class UpdateTypeRequest(BaseModel):
     column: str
     newType: str # "Kat
-    
+
 
 @app.post("/api/validate_and_update_column_type") # Nový název endpointu je lepší
 async def validate_and_update_column_type(req: UpdateTypeRequest):
@@ -3603,3 +3532,9 @@ async def recalculate_single_column_normality(request: RecalculateSingleNormalit
         print(f"Neočekávaná chyba při přepočtu normality pro sloupec {column_name} metodou {test_method}: {e}")
         # Můžeme zde logovat celé traceback: import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Interní serverová chyba při přepočtu normality pro sloupec '{column_name}'. Detail: {e}")
+
+# --- Spuštění aplikace (pokud je soubor spouštěn přímo) ---
+if __name__ == "__main__":
+    import uvicorn
+    logger.info("Starting Uvicorn server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
